@@ -1,65 +1,109 @@
 // src/App.tsx
-import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import React, { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
 import {
   useReactTable,
   getCoreRowModel,
   getPaginationRowModel,
+  getSortedRowModel,
   ColumnDef,
   flexRender,
-} from '@tanstack/react-table';
+  SortingState,
+} from "@tanstack/react-table";
 
 // 데이터 타입 정의
 type DataItem = {
   id: number;
-  name: string;
   email: string;
+  first_name: string;
+  last_name: string;
+  avatar: string;
 };
 
 // API 호출 함수
-const fetchData = async ({ queryKey }: { queryKey: [string, number, number] }): Promise<{ data: DataItem[]; total: number }> => {
+const fetchData = async ({
+  queryKey,
+}: {
+  queryKey: readonly [string, number, number];
+}): Promise<{ data: DataItem[]; total: number }> => {
   const [_key, pageIndex, pageSize] = queryKey;
-  // 실제 API 엔드포인트와 파라미터에 맞게 수정하세요.
-  const response = await axios.get('https://api.example.com/data', {
+  const response = await axios.get("https://reqres.in/api/users", {
     params: {
-      page: pageIndex,
-      limit: pageSize,
+      page: pageIndex + 1, // reqres의 페이지는 1부터 시작합니다.
+      per_page: pageSize,
     },
   });
-  return response.data;
+  return { data: response.data.data, total: response.data.total };
 };
 
 const App: React.FC = () => {
   // 페이지 인덱스와 페이지 크기 상태 관리
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const [sorting, setSorting] = useState<SortingState>([]);
 
   // React Query로 데이터 fetch (페이지 전환 시 이전 데이터를 유지)
-  const { data, isLoading, error } : any = useQuery<any>({
-    queryKey: ['data'],
-    queryFn: fetchData
+  const { data, isLoading, error }: any = useQuery({
+    queryKey: ["data", pageIndex, pageSize] as const,
+    queryFn: fetchData,
   });
   // TanStack Table에 사용할 컬럼 정의
-  const columns = useMemo<ColumnDef<DataItem, any>[]>(() => [
-    { accessorKey: 'id', header: 'ID' },
-    { accessorKey: 'name', header: 'Name' },
-    { accessorKey: 'email', header: 'Email' },
-  ], []);
+  const columns = useMemo<ColumnDef<DataItem>[]>(
+    () => [
+      {
+        accessorKey: "id",
+        header: "ID",
+        enableSorting: true,
+      },
+      {
+        accessorKey: "first_name",
+        header: "First Name",
+        enableSorting: true,
+      },
+      {
+        accessorKey: "last_name",
+        header: "Last Name",
+        enableSorting: true,
+      },
+      {
+        accessorKey: "email",
+        header: "Email",
+        enableSorting: true,
+      },
+      {
+        accessorKey: "avatar",
+        header: "Avatar",
+        enableSorting: false,
+        cell: (info) => (
+          <img
+            src={info.getValue() as string}
+            alt="avatar"
+            className="w-10 h-10 rounded-full"
+          />
+        ),
+      },
+    ],
+    []
+  );
 
   // TanStack Table 인스턴스 생성 (manualPagination 옵션 사용)
   const table = useReactTable({
-    data: data?.data || [],
+    data: data?.data ?? [],
     columns,
-    manualPagination: true,
-    pageCount: data ? Math.ceil(data.total / pageSize) : 0,
     state: {
       pagination: { pageIndex, pageSize },
+      sorting,
     },
+    onSortingChange: setSorting,
+    getSortedRowModel: getSortedRowModel(),
+    manualPagination: true,
+    pageCount: data ? Math.ceil(data.total / pageSize) : 0,
     onPaginationChange: (updater) => {
-      const newPagination = typeof updater === 'function'
-        ? updater({ pageIndex, pageSize })
-        : updater;
+      const newPagination =
+        typeof updater === "function"
+          ? updater({ pageIndex, pageSize })
+          : updater;
       setPageIndex(newPagination.pageIndex);
       setPageSize(newPagination.pageSize);
     },
@@ -67,33 +111,63 @@ const App: React.FC = () => {
     getPaginationRowModel: getPaginationRowModel(),
   });
 
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error fetching data.</div>;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-lg font-medium">로딩 중...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-red-500 font-medium">
+          데이터 불러오기 실패: {error.message}
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: '1rem' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }} border={1} cellPadding={8}>
+    <div className="p-4">
+      <table className="w-full border-collapse border border-gray-200">
         <thead>
-          {table.getHeaderGroups().map(headerGroup => (
+          {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
-              {headerGroup.headers.map(header => (
-                <th key={header.id}>
-                  {header.isPlaceholder ? null : 
-                    flexRender(header.column.columnDef.header, header.getContext())}
+              {headerGroup.headers.map((header) => (
+                <th
+                  key={header.id}
+                  className={`border border-gray-200 p-2 bg-gray-50 ${
+                    header.column.getCanSort()
+                      ? "cursor-pointer select-none hover:bg-gray-100"
+                      : ""
+                  }`}
+                  onClick={header.column.getToggleSortingHandler()}
+                >
+                  <div className="flex items-center justify-between">
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
+                    <span className="ml-2">
+                      {{
+                        asc: " 🔼",
+                        desc: " 🔽",
+                      }[header.column.getIsSorted() as string] ?? null}
+                    </span>
+                  </div>
                 </th>
               ))}
             </tr>
           ))}
         </thead>
         <tbody>
-          {table.getRowModel().rows.map(row => (
-            <tr key={row.id}>
-              {row.getVisibleCells().map(cell => (
-                <td key={cell.id}>
-                  {flexRender(
-                    cell.column.columnDef.cell ?? ((info) => info.getValue()),
-                    cell.getContext()
-                  )}
+          {table.getRowModel().rows.map((row) => (
+            <tr key={row.id} className="hover:bg-gray-50">
+              {row.getVisibleCells().map((cell) => (
+                <td key={cell.id} className="border border-gray-200 p-2">
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>
               ))}
             </tr>
@@ -102,23 +176,40 @@ const App: React.FC = () => {
       </table>
 
       {/* 페이지네이션 UI */}
-      <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <button onClick={() => setPageIndex(0)} disabled={pageIndex === 0}>
-          {'<<'}
+      <div className="mt-4 flex items-center gap-2">
+        <button
+          className="px-3 py-1 rounded bg-blue-500 text-white disabled:bg-gray-300"
+          onClick={() => setPageIndex(0)}
+          disabled={pageIndex === 0}
+        >
+          {"<<"}
         </button>
-        <button onClick={() => setPageIndex(old => Math.max(old - 1, 0))} disabled={pageIndex === 0}>
-          {'<'}
+        <button
+          className="px-3 py-1 rounded bg-blue-500 text-white disabled:bg-gray-300"
+          onClick={() => setPageIndex((old) => Math.max(old - 1, 0))}
+          disabled={pageIndex === 0}
+        >
+          {"<"}
         </button>
-        <span>
-          Page <strong>{pageIndex + 1}</strong> of <strong>{table.getPageCount()}</strong>
+        <span className="mx-2">
+          페이지 <strong>{pageIndex + 1}</strong> /{" "}
+          <strong>{table.getPageCount()}</strong>
         </span>
-        <button onClick={() => setPageIndex(old => Math.min(old + 1, table.getPageCount() - 1))}
-          disabled={pageIndex >= table.getPageCount() - 1}>
-          {'>'}
+        <button
+          className="px-3 py-1 rounded bg-blue-500 text-white disabled:bg-gray-300"
+          onClick={() =>
+            setPageIndex((old) => Math.min(old + 1, table.getPageCount() - 1))
+          }
+          disabled={pageIndex >= table.getPageCount() - 1}
+        >
+          {">"}
         </button>
-        <button onClick={() => setPageIndex(table.getPageCount() - 1)}
-          disabled={pageIndex >= table.getPageCount() - 1}>
-          {'>>'}
+        <button
+          className="px-3 py-1 rounded bg-blue-500 text-white disabled:bg-gray-300"
+          onClick={() => setPageIndex(table.getPageCount() - 1)}
+          disabled={pageIndex >= table.getPageCount() - 1}
+        >
+          {">>"}
         </button>
       </div>
     </div>
