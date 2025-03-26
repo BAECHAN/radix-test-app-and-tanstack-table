@@ -11,7 +11,7 @@ import {
   flexRender,
   SortingState,
 } from "@tanstack/react-table";
-
+import "./App.css";
 // 데이터 타입 정의
 type DataItem = {
   id: number;
