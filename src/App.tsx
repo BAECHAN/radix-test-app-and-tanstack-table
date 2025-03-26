@@ -83,6 +83,27 @@ const App: React.FC = () => {
           />
         ),
       },
+      {
+        id: 'actions',
+        header: 'Actions',
+        enableSorting: false,
+        cell: (info) => (
+          <div className="flex gap-2">
+            <button 
+              onClick={() => handleEdit(info.row.original)}
+              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              수정
+            </button>
+            <button 
+              onClick={() => handleDelete(info.row.original)}
+              className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+            >
+              삭제
+            </button>
+          </div>
+        ),
+      },
     ],
     []
   );
@@ -111,6 +132,16 @@ const App: React.FC = () => {
     getPaginationRowModel: getPaginationRowModel(),
   });
 
+  const handleEdit = (row: DataItem) => {
+    alert('Edit clicked for:' + row.email);
+    // 여기에 수정 로직 구현
+  };
+
+  const handleDelete = (row: DataItem) => {
+    alert('Delete clicked for:' + row.email);
+    // 여기에 삭제 로직 구현
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -138,7 +169,7 @@ const App: React.FC = () => {
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
-                  className={`border border-gray-200 p-2 bg-gray-50 ${
+                  className={`border border-gray-200 p-2 bg-gray-50  ${
                     header.column.getCanSort()
                       ? "cursor-pointer select-none hover:bg-gray-100"
                       : ""
